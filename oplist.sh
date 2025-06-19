@@ -15,8 +15,6 @@ FILE_NAME="openlist-android-arm64.tar.gz"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEST_DIR="$SCRIPT_DIR/Openlist"
 DOWNLOAD_URL="https://github.com/OpenListTeam/OpenList/releases/download/beta/openlist-android-arm64.tar.gz"
-SCRIPT_URL="https://raw.githubusercontent.com/giturass/openlist_termux/refs/heads/main/oplist.sh"
-SCRIPT_NAME="oplist.sh"
 
 divider() { echo -e "${YELLOW}------------------------------------------------------------${NC}"; }
 
@@ -25,9 +23,9 @@ ensure_tools() {
     if ! command -v $tool >/dev/null 2>&1; then
       echo -e "${WARN} 未检测到 $tool，正在尝试安装..."
       if command -v apt >/dev/null 2>&1; then
-        apt update; apt install -y $tool
+        apt update && apt install -y $tool
       elif command -v pkg >/dev/null 2>&1; then
-        pkg update; pkg install -y $tool
+        pkg update && pkg install -y $tool
       else
         echo -e "${ERROR} 无法自动安装 $tool，请手动安装后重试。"
         exit 1
@@ -170,16 +168,14 @@ view_log() {
 
 update_script() {
   ensure_tools
-  if [ -f "$SCRIPT_NAME" ]; then
-    rm -f "$SCRIPT_NAME"
-    echo -e "${INFO} 已删除旧脚本 ${YELLOW}$SCRIPT_NAME${NC}"
-  fi
-  if curl -fsSL -o "$SCRIPT_NAME" "$SCRIPT_URL" || wget -qO "$SCRIPT_NAME" "$SCRIPT_URL"; then
-    chmod +x "$SCRIPT_NAME"
+  if wget -q -O oplist.sh.new https://raw.githubusercontent.com/giturass/openlist_termux/refs/heads/main/oplist.sh && [ -s oplist.sh.new ]; then
+    chmod +x oplist.sh.new
+    mv oplist.sh.new oplist.sh
     echo -e "${SUCCESS} 管理脚本已更新为最新版本。"
-    echo -e "${INFO} 请用命令：${YELLOW}bash $SCRIPT_NAME${NC} 重新运行。"
+    echo -e "${INFO} 请用命令：${YELLOW}bash oplist.sh${NC} 重新运行。"
   else
     echo -e "${ERROR} 下载最新管理脚本失败，请检查网络或稍后再试。"
+    rm -f oplist.sh.new
   fi
   echo -e "按回车键返回菜单..."
   read -r
