@@ -133,6 +133,18 @@ stop_openlist() {
   return 0
 }
 
+view_log() {
+  LOG_FILE="$DEST_DIR/openlist.log"
+  if [ ! -f "$LOG_FILE" ]; then
+    echo -e "${ERROR} 未找到日志文件：$LOG_FILE"
+    return 1
+  fi
+  echo -e "${INFO} 显示日志文件：${YELLOW}$LOG_FILE${NC}"
+  cat "$LOG_FILE"
+  echo -e "按回车键返回菜单..."
+  read -r
+}
+
 show_menu() {
   clear
   divider
@@ -149,21 +161,21 @@ show_menu() {
   echo -e "${YELLOW}2)${NC} 更新 OpenList 到最新版"
   echo -e "${YELLOW}3)${NC} 启动 OpenList"
   echo -e "${YELLOW}4)${NC} 停止 OpenList"
-  echo -e "${YELLOW}5)${NC} 退出"
+  echo -e "${YELLOW}5)${NC} 查看日志"
+  echo -e "${YELLOW}6)${NC} 退出"
   divider
 }
 
 while true; do
   show_menu
-  read -ep "请输入选项 (1-5): " choice
+  read -ep "请输入选项 (1-6): " choice
   case $choice in
-    1) install_openlist ;;
-    2) update_openlist ;;
-    3) start_openlist ;;
-    4) stop_openlist ;;
-    5) echo -e "${INFO} 退出程序。"; exit 0 ;;
-    *) echo -e "${ERROR} 无效选项，请输入 1-5。" ;;
+    1) install_openlist; echo -e "按回车键返回菜单..."; read -r ;;
+    2) update_openlist; echo -e "按回车键返回菜单..."; read -r ;;
+    3) start_openlist; echo -e "按回车键返回菜单..."; read -r ;;
+    4) stop_openlist; echo -e "按回车键返回菜单..."; read -r ;;
+    5) view_log ;;
+    6) echo -e "${INFO} 退出程序。"; exit 0 ;;
+    *) echo -e "${ERROR} 无效选项，请输入 1-6。"; echo -e "按回车键返回菜单..."; read -r ;;
   esac
-  echo -e "按回车键返回菜单..."
-  read -r
 done
