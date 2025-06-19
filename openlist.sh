@@ -15,10 +15,29 @@ FILE_NAME="openlist-android-arm64.tar.gz"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEST_DIR="$SCRIPT_DIR/Openlist"
 DOWNLOAD_URL="https://github.com/OpenListTeam/OpenList/releases/download/beta/openlist-android-arm64.tar.gz"
+SCRIPT_URL="https://raw.githubusercontent.com/giturass/openlist_termux/refs/heads/main/oplist.sh"
+SCRIPT_NAME="oplist.sh"
 
 divider() { echo -e "${YELLOW}------------------------------------------------------------${NC}"; }
 
+ensure_tools() {
+  for tool in wget curl; do
+    if ! command -v $tool >/dev/null 2>&1; then
+      echo -e "${WARN} 未检测到 $tool，正在尝试安装..."
+      if command -v apt >/dev/null 2>&1; then
+        apt update; apt install -y $tool
+      elif command -v pkg >/dev/null 2>&1; then
+        pkg update; pkg install -y $tool
+      else
+        echo -e "${ERROR} 无法自动安装 $tool，请手动安装后重试。"
+        exit 1
+      fi
+    fi
+  done
+}
+
 download_file() {
+  ensure_tools
   echo -e "${INFO} 正在下载 ${YELLOW}$FILE_NAME${NC} ..."
   curl -fsSL -o "$FILE_NAME" "$DOWNLOAD_URL"
   [ $? -ne 0 ] && { echo -e "${ERROR} 下载文件失败。"; return 1; }
@@ -34,6 +53,7 @@ extract_file() {
 }
 
 install_openlist() {
+  ensure_tools
   pushd "$SCRIPT_DIR" > /dev/null || { echo -e "${ERROR} 无法切换到脚本目录。"; return 1; }
   download_file || { popd > /dev/null; return 1; }
   extract_file || { popd > /dev/null; return 1; }
@@ -48,6 +68,7 @@ install_openlist() {
 }
 
 update_openlist() {
+  ensure_tools
   [ ! -d "$DEST_DIR" ] && { echo -e "${ERROR} $DEST_DIR 文件夹不存在，请先安装 OpenList。"; return 1; }
   pushd "$SCRIPT_DIR" > /dev/null || { echo -e "${ERROR} 无法切换到脚本目录。"; return 1; }
   download_file || { popd > /dev/null; return 1; }
@@ -66,6 +87,7 @@ check_process() {
 }
 
 start_openlist() {
+  ensure_tools
   [ ! -d "$DEST_DIR" ] && { echo -e "${ERROR} $DEST_DIR 文件夹不存在，请先安装 OpenList。"; return 1; }
   if check_process; then
     PIDS=$(pgrep -f "./openlist server")
@@ -119,6 +141,7 @@ start_openlist() {
 }
 
 stop_openlist() {
+  check_process
   if check_process; then
     PIDS=$(pgrep -f "./openlist server")
     echo -e "${INFO} 检测到 OpenList server 正在运行，PID：$PIDS"
@@ -145,6 +168,23 @@ view_log() {
   read -r
 }
 
+update_script() {
+  ensure_tools
+  if [ -f "$SCRIPT_NAME" ]; then
+    rm -f "$SCRIPT_NAME"
+    echo -e "${INFO} 已删除旧脚本 ${YELLOW}$SCRIPT_NAME${NC}"
+  fi
+  if curl -fsSL -o "$SCRIPT_NAME" "$SCRIPT_URL" || wget -qO "$SCRIPT_NAME" "$SCRIPT_URL"; then
+    chmod +x "$SCRIPT_NAME"
+    echo -e "${SUCCESS} 管理脚本已更新为最新版本。"
+    echo -e "${INFO} 请用命令：${YELLOW}bash $SCRIPT_NAME${NC} 重新运行。"
+  else
+    echo -e "${ERROR} 下载最新管理脚本失败，请检查网络或稍后再试。"
+  fi
+  echo -e "按回车键返回菜单..."
+  read -r
+}
+
 show_menu() {
   clear
   divider
@@ -162,20 +202,22 @@ show_menu() {
   echo -e "${YELLOW}3)${NC} 启动 OpenList"
   echo -e "${YELLOW}4)${NC} 停止 OpenList"
   echo -e "${YELLOW}5)${NC} 查看日志"
-  echo -e "${YELLOW}6)${NC} 退出"
+  echo -e "${YELLOW}6)${NC} 更新管理脚本"
+  echo -e "${YELLOW}7)${NC} 退出"
   divider
 }
 
 while true; do
   show_menu
-  read -ep "请输入选项 (1-6): " choice
+  read -ep "请输入选项 (1-7): " choice
   case $choice in
     1) install_openlist; echo -e "按回车键返回菜单..."; read -r ;;
     2) update_openlist; echo -e "按回车键返回菜单..."; read -r ;;
     3) start_openlist; echo -e "按回车键返回菜单..."; read -r ;;
     4) stop_openlist; echo -e "按回车键返回菜单..."; read -r ;;
     5) view_log ;;
-    6) echo -e "${INFO} 退出程序。"; exit 0 ;;
-    *) echo -e "${ERROR} 无效选项，请输入 1-6。"; echo -e "按回车键返回菜单..."; read -r ;;
+    6) update_script ;;
+    7) echo -e "${INFO} 退出程序。"; exit 0 ;;
+    *) echo -e "${ERROR} 无效选项，请输入 1-7。"; echo -e "按回车键返回菜单..."; read -r ;;
   esac
 done
