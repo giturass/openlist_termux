@@ -18,7 +18,6 @@ OPENLIST_LOGDIR="$DEST_DIR/data/log"
 OPENLIST_LOG="$OPENLIST_LOGDIR/openlist.log"
 ARIA2_DIR="$SCRIPT_DIR/aria2"
 ARIA2_LOG="$ARIA2_DIR/aria2.log"
-ARIA2_PID_FILE="$ARIA2_DIR/aria2.pid"
 DOWNLOAD_URL="https://github.com/OpenListTeam/OpenList/releases/download/beta/openlist-android-arm64.tar.gz"
 ARIA2_CMD="aria2c"
 
@@ -185,10 +184,9 @@ start_aria2() {
   read -ep "请输入aria2 rpc密钥: " ARIA2_SECRET
   echo -e "${INFO} 启动 aria2c ..."
   nohup $ARIA2_CMD --enable-rpc --rpc-listen-all=true --rpc-secret="$ARIA2_SECRET" > "$ARIA2_LOG" 2>&1 &
-  ARIA2_PID=$!
-  echo $ARIA2_PID > "$ARIA2_PID_FILE"
   sleep 2
-  if ps -p "$ARIA2_PID" > /dev/null 2>&1; then
+  local ARIA2_PID=$(pgrep -f "$ARIA2_CMD --enable-rpc" | head -n 1)
+  if [ -n "$ARIA2_PID" ] && ps -p "$ARIA2_PID" > /dev/null 2>&1; then
     echo -e "${SUCCESS} aria2 已启动 (PID: $ARIA2_PID)。"
     echo -e "${INFO} 日志文件位置: ${YELLOW}$ARIA2_LOG${NC}"
     echo -e "${INFO} rpc 密钥: ${YELLOW}$ARIA2_SECRET${NC}"
@@ -206,7 +204,6 @@ stop_aria2() {
     pkill -f "$ARIA2_CMD --enable-rpc"
     sleep 1
     check_aria2_process && { echo -e "${ERROR} 无法终止 aria2 进程。"; return 1; }
-    rm -f "$ARIA2_PID_FILE"
     echo -e "${SUCCESS} aria2 已成功终止。"
   else
     echo -e "${WARN} aria2 未运行。"
