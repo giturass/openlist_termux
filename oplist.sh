@@ -25,7 +25,7 @@ ARIA2_CMD="aria2c"
 divider() { echo -e "${YELLOW}------------------------------------------------------------${NC}"; }
 
 ensure_tools() {
-  for tool in wget curl aria2c; do
+  for tool in curl aria2c; do
     if ! command -v $tool >/dev/null 2>&1; then
       echo -e "${WARN} 未检测到 $tool，正在尝试安装..."
       if command -v apt >/dev/null 2>&1; then
@@ -43,21 +43,12 @@ ensure_tools() {
 download_with_progress() {
   local url="$1"
   local output="$2"
-  if command -v wget >/dev/null 2>&1; then
-    wget --show-progress -O "$output" "$url"
-  else
-    curl -L --progress-bar -o "$output" "$url"
-  fi
+  curl -L --progress-bar -o "$output" "$url"
 }
 
-extract_with_progress() {
+extract_file() {
   local file="$1"
-  if tar --help | grep -q -- '--checkpoint'; then
-    tar -zxf "$file" --checkpoint=100 --checkpoint-action=dot
-    echo
-  else
-    tar -zxf "$file"
-  fi
+  tar -zxf "$file"
 }
 
 install_openlist() {
@@ -66,7 +57,7 @@ install_openlist() {
   echo -e "${INFO} 正在下载 ${YELLOW}$FILE_NAME${NC} ..."
   download_with_progress "$DOWNLOAD_URL" "$FILE_NAME" || { echo -e "${ERROR} 下载文件失败。"; popd > /dev/null; return 1; }
   echo -e "${INFO} 正在解压 ${YELLOW}$FILE_NAME${NC} ..."
-  extract_with_progress "$FILE_NAME" || { echo -e "${ERROR} 解压文件失败。"; popd > /dev/null; return 1; }
+  extract_file "$FILE_NAME" || { echo -e "${ERROR} 解压文件失败。"; popd > /dev/null; return 1; }
   [ ! -f "openlist" ] && { echo -e "${ERROR} 未找到 openlist 可执行文件。"; popd > /dev/null; return 1; }
   echo -e "${INFO} 创建文件夹 ${YELLOW}$DEST_DIR${NC} ..."
   mkdir -p "$DEST_DIR"
@@ -85,7 +76,7 @@ update_openlist() {
   echo -e "${INFO} 正在下载 ${YELLOW}$FILE_NAME${NC} ..."
   download_with_progress "$DOWNLOAD_URL" "$FILE_NAME" || { echo -e "${ERROR} 下载文件失败。"; popd > /dev/null; return 1; }
   echo -e "${INFO} 正在解压 ${YELLOW}$FILE_NAME${NC} ..."
-  extract_with_progress "$FILE_NAME" || { echo -e "${ERROR} 解压文件失败。"; popd > /dev/null; return 1; }
+  extract_file "$FILE_NAME" || { echo -e "${ERROR} 解压文件失败。"; popd > /dev/null; return 1; }
   rm -f "$DEST_DIR/openlist"
   mv -f openlist "$DEST_DIR/"
   chmod +x "$DEST_DIR/openlist"
@@ -260,11 +251,7 @@ update_script() {
   ensure_tools
   TMP_FILE="oplist.sh.new"
   echo -e "${INFO} 正在下载最新管理脚本..."
-  if command -v wget >/dev/null 2>&1; then
-    wget --show-progress -O "$TMP_FILE" https://raw.githubusercontent.com/giturass/openlist_termux/refs/heads/main/oplist.sh
-  else
-    curl -L --progress-bar -o "$TMP_FILE" https://raw.githubusercontent.com/giturass/openlist_termux/refs/heads/main/oplist.sh
-  fi
+  curl -L --progress-bar -o "$TMP_FILE" https://raw.githubusercontent.com/giturass/openlist_termux/refs/heads/main/oplist.sh
   if [ $? -eq 0 ] && [ -s "$TMP_FILE" ]; then
     chmod +x "$TMP_FILE"
     mv "$TMP_FILE" oplist.sh
