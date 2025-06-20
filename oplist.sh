@@ -20,7 +20,7 @@ ARIA2_DIR="$SCRIPT_DIR/aria2"
 ARIA2_LOG="$ARIA2_DIR/aria2.log"
 ARIA2_CMD="aria2c"
 
-# 自动获取 OpenList 最新正式版 release 的 arm64 构建下载地址
+# 自动获取 OpenList 最新 release 的 arm64 构建下载地址
 get_latest_url() {
   curl -s https://api.github.com/repos/OpenListTeam/OpenList/releases/latest \
     | grep "browser_download_url" \
@@ -231,9 +231,7 @@ stop_aria2() {
 }
 
 aria2_status_line() {
-  if check_aria2_process; then
-    PIDS=$(pgrep -f "$ARIA2_CMD --enable-rpc")
-    echo -e "${INFO} aria2 状态：${GREEN}运行中 (PID: $PIDS)${NC}"
+  if check}运行中 (PID: $PIDS)${NC}"
   else
     echo -e "${INFO} aria2 状态：${RED}未运行${NC}"
   fi
@@ -245,7 +243,7 @@ view_openlist_log() {
     echo -e "${ERROR} 未找到OpenList日志文件：$LOG_FILE"
     return 1
   fi
-  echo -e "${INFO} 显示Open}$LOG_FILE${NC}"
+  echo -e "${INFO} 显示OpenList日志文件：${YELLOW}$LOG_FILE${NC}"
   cat "$LOG_FILE"
   echo -e "按回车键返回菜单..."
   read -r
@@ -281,7 +279,10 @@ update_script() {
   read -r
 }
 
-${NC}"
+show_menu() {
+  clear
+  divider
+  echo -e "${GREEN}       OpenList 管理菜单${NC}"
   divider
   if check_process; then
     PIDS=$(pgrep -f "./openlist server")
