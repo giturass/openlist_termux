@@ -34,27 +34,34 @@ ensure_tools() {
   done
 }
 
-download_file() {
-  ensure_tools
-  echo -e "${INFO} 正在下载 ${YELLOW}$FILE_NAME${NC} ..."
-  curl -fsSL -o "$FILE_NAME" "$DOWNLOAD_URL"
-  [ $? -ne 0 ] && { echo -e "${ERROR} 下载文件失败。"; return 1; }
-  return 0
+download_with_progress() {
+  local url="$1"
+  local output="$2"
+  if command -v wget >/dev/null 2>&1; then
+    wget --show-progress -O "$output" "$url"
+  else
+    curl -L --progress-bar -o "$output" "$url"
+  fi
 }
 
-extract_file() {
-  echo -e "${INFO} 正在解压 ${YELLOW}$FILE_NAME${NC} ..."
-  tar -zxf "$FILE_NAME"
-  [ $? -ne 0 ] && { echo -e "${ERROR} 解压文件失败。"; return 1; }
-  [ ! -f "openlist" ] && { echo -e "${ERROR} 未找到 openlist 可执行文件。"; return 1; }
-  return 0
+extract_with_progress() {
+  local file="$1"
+  if tar --help | grep -q -- '--checkpoint'; then
+    tar -zxf "$file" --checkpoint=100 --checkpoint-action=dot
+    echo
+  else
+    tar -zxf "$file"
+  fi
 }
 
 install_openlist() {
   ensure_tools
   pushd "$SCRIPT_DIR" > /dev/null || { echo -e "${ERROR} 无法切换到脚本目录。"; return 1; }
-  download_file || { popd > /dev/null; return 1; }
-  extract_file || { popd > /dev/null; return 1; }
+  echo -e "${INFO} 正在下载 ${YELLOW}$FILE_NAME${NC} ..."
+  download_with_progress "$DOWNLOAD_URL" "$FILE_NAME" || { echo -e "${ERROR} 下载文件失败。"; popd > /dev/null; return 1; }
+  echo -e "${INFO} 正在解压 ${YELLOW}$FILE_NAME${NC} ..."
+  extract_with_progress "$FILE_NAME" || { echo -e "${ERROR} 解压文件失败。"; popd > /dev/null; return 1; }
+  [ ! -f "openlist" ] && { echo -e "${ERROR} 未找到 openlist 可执行文件。"; popd > /dev/null; return 1; }
   echo -e "${INFO} 创建文件夹 ${YELLOW}$DEST_DIR${NC} ..."
   mkdir -p "$DEST_DIR"
   mv -f openlist "$DEST_DIR/" || { echo -e "${ERROR} 移动 openlist 文件失败。"; popd > /dev/null; return 1; }
@@ -69,8 +76,10 @@ update_openlist() {
   ensure_tools
   [ ! -d "$DEST_DIR" ] && { echo -e "${ERROR} $DEST_DIR 文件夹不存在，请先安装 OpenList。"; return 1; }
   pushd "$SCRIPT_DIR" > /dev/null || { echo -e "${ERROR} 无法切换到脚本目录。"; return 1; }
-  download_file || { popd > /dev/null; return 1; }
-  extract_file || { popd > /dev/null; return 1; }
+  echo -e "${INFO} 正在下载 ${YELLOW}$FILE_NAME${NC} ..."
+  download_with_progress "$DOWNLOAD_URL" "$FILE_NAME" || { echo -e "${ERROR} 下载文件失败。"; popd > /dev/null; return 1; }
+  echo -e "${INFO} 正在解压 ${YELLOW}$FILE_NAME${NC} ..."
+  extract_with_progress "$FILE_NAME" || { echo -e "${ERROR} 解压文件失败。"; popd > /dev/null; return 1; }
   rm -f "$DEST_DIR/openlist"
   mv -f openlist "$DEST_DIR/"
   chmod +x "$DEST_DIR/openlist"
@@ -168,14 +177,21 @@ view_log() {
 
 update_script() {
   ensure_tools
-  if wget -q -O oplist.sh.new https://raw.githubusercontent.com/giturass/openlist_termux/refs/heads/main/oplist.sh && [ -s oplist.sh.new ]; then
-    chmod +x oplist.sh.new
-    mv oplist.sh.new oplist.sh
+  TMP_FILE="oplist.sh.new"
+  echo -e "${INFO} 正在下载最新管理脚本..."
+  if command -v wget >/dev/null 2>&1; then
+    wget --show-progress -O "$TMP_FILE" https://raw.githubusercontent.com/giturass/openlist_termux/refs/heads/main/oplist.sh
+  else
+    curl -L --progress-bar -o "$TMP_FILE" https://raw.githubusercontent.com/giturass/openlist_termux/refs/heads/main/oplist.sh
+  fi
+  if [ $? -eq 0 ] && [ -s "$TMP_FILE" ]; then
+    chmod +x "$TMP_FILE"
+    mv "$TMP_FILE" oplist.sh
     echo -e "${SUCCESS} 管理脚本已更新为最新版本。"
     echo -e "${INFO} 请用命令：${YELLOW}bash oplist.sh${NC} 重新运行。"
   else
     echo -e "${ERROR} 下载最新管理脚本失败，请检查网络或稍后再试。"
-    rm -f oplist.sh.new
+    rm -f "$TMP_FILE"
   fi
   echo -e "按回车键返回菜单..."
   read -r
