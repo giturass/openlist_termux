@@ -14,11 +14,13 @@ WARN="${YELLOW}[WARN]${NC}"
 FILE_NAME="openlist-android-arm64.tar.gz"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEST_DIR="$SCRIPT_DIR/Openlist"
+OPENLIST_LOGDIR="$DEST_DIR/data/log"
+OPENLIST_LOG="$OPENLIST_LOGDIR/openlist.log"
+ARIA2_DIR="$SCRIPT_DIR/aria2"
+ARIA2_LOG="$ARIA2_DIR/aria2.log"
+ARIA2_PID_FILE="$ARIA2_DIR/aria2.pid"
 DOWNLOAD_URL="https://github.com/OpenListTeam/OpenList/releases/download/beta/openlist-android-arm64.tar.gz"
-
 ARIA2_CMD="aria2c"
-ARIA2_LOG="$SCRIPT_DIR/aria2.log"
-ARIA2_PID_FILE="$SCRIPT_DIR/aria2.pid"
 
 divider() { echo -e "${YELLOW}------------------------------------------------------------${NC}"; }
 
@@ -104,6 +106,7 @@ check_aria2_process() {
 start_openlist() {
   ensure_tools
   [ ! -d "$DEST_DIR" ] && { echo -e "${ERROR} $DEST_DIR 文件夹不存在，请先安装 OpenList。"; return 1; }
+  mkdir -p "$OPENLIST_LOGDIR"
   if check_process; then
     PIDS=$(pgrep -f "./openlist server")
     echo -e "${WARN} OpenList server 已运行，PID：$PIDS"
@@ -124,7 +127,7 @@ start_openlist() {
   [ ! -x "openlist" ] && chmod +x openlist
   divider
   echo -e "${INFO} 启动 openlist server..."
-  ./openlist server > openlist.log 2>&1 &
+  ./openlist server > "$OPENLIST_LOG" 2>&1 &
   OPENLIST_PID=$!
   sleep 3
   if ps -p "$OPENLIST_PID" > /dev/null 2>&1; then
@@ -134,8 +137,8 @@ start_openlist() {
     popd > /dev/null
     return 1
   fi
-  if [ -f "openlist.log" ]; then
-    PASSWORD=$(grep -oP '(?<=initial password is: )\S+' openlist.log)
+  if [ -f "$OPENLIST_LOG" ]; then
+    PASSWORD=$(grep -oP '(?<=initial password is: )\S+' "$OPENLIST_LOG")
     if [ -n "$PASSWORD" ]; then
       echo -e "${SUCCESS} 检测到 OpenList 初始账户信息："
       echo -e "    用户名：${YELLOW}admin${NC}"
@@ -149,7 +152,7 @@ start_openlist() {
     echo -e "${ERROR} 未生成 openlist.log 日志文件。"
     echo -e "${INFO} 您可以尝试访问：${YELLOW}http://localhost:5244${NC}"
   fi
-  echo -e "${INFO} 日志文件位于 ${YELLOW}$DEST_DIR/openlist.log${NC}"
+  echo -e "${INFO} 日志文件位于 ${YELLOW}$OPENLIST_LOG${NC}"
   divider
   popd > /dev/null
   return 0
@@ -173,6 +176,7 @@ stop_openlist() {
 
 start_aria2() {
   ensure_tools
+  mkdir -p "$ARIA2_DIR"
   if check_aria2_process; then
     PIDS=$(pgrep -f "$ARIA2_CMD --enable-rpc")
     echo -e "${WARN} aria2 已运行，PID：$PIDS"
@@ -229,7 +233,7 @@ aria2_status_line() {
 }
 
 view_openlist_log() {
-  LOG_FILE="$DEST_DIR/openlist.log"
+  LOG_FILE="$OPENLIST_LOG"
   if [ ! -f "$LOG_FILE" ]; then
     echo -e "${ERROR} 未找到OpenList日志文件：$LOG_FILE"
     return 1
@@ -296,13 +300,13 @@ show_menu() {
   echo -e "${YELLOW}7)${NC} 查看OpenList启动日志"
   echo -e "${YELLOW}8)${NC} 查看aria2启动日志"
   echo -e "${YELLOW}9)${NC} 更新管理脚本"
-  echo -e "${YELLOW}10)${NC} 退出"
+  echo -e "${YELLOW}0)${NC} 退出"
   divider
 }
 
 while true; do
   show_menu
-  read -ep "请输入选项 (1-10): " choice
+  read -ep "请输入选项 (0-9): " choice
   case $choice in
     1) install_openlist; echo -e "按回车键返回菜单..."; read -r ;;
     2) update_openlist; echo -e "按回车键返回菜单..."; read -r ;;
@@ -313,7 +317,7 @@ while true; do
     7) view_openlist_log ;;
     8) view_aria2_log ;;
     9) update_script ;;
-    10) echo -e "${INFO} 退出程序。"; exit 0 ;;
-    *) echo -e "${ERROR} 无效选项，请输入 1-10。"; echo -e "按回车键返回菜单..."; read -r ;;
+    0) echo -e "${INFO} 退出程序。"; exit 0 ;;
+    *) echo -e "${ERROR} 无效选项，请输入 0-9。"; echo -e "按回车键返回菜单..."; read -r ;;
   esac
 done
