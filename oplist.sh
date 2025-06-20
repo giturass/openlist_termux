@@ -18,8 +18,15 @@ OPENLIST_LOGDIR="$DEST_DIR/data/log"
 OPENLIST_LOG="$OPENLIST_LOGDIR/openlist.log"
 ARIA2_DIR="$SCRIPT_DIR/aria2"
 ARIA2_LOG="$ARIA2_DIR/aria2.log"
-DOWNLOAD_URL="https://github.com/OpenListTeam/OpenList/releases/download/beta/openlist-android-arm64.tar.gz"
 ARIA2_CMD="aria2c"
+
+# 自动获取 OpenList 最新正式版 release 的 arm64 构建下载地址
+get_latest_url() {
+  curl -s https://api.github.com/repos/OpenListTeam/OpenList/releases/latest \
+    | grep "browser_download_url" \
+    | grep "openlist-android-arm64.tar.gz" \
+    | cut -d '"' -f 4
+}
 
 divider() { echo -e "${YELLOW}------------------------------------------------------------${NC}"; }
 
@@ -52,6 +59,12 @@ extract_file() {
 
 install_openlist() {
   ensure_tools
+  local DOWNLOAD_URL
+  DOWNLOAD_URL=$(get_latest_url)
+  if [ -z "$DOWNLOAD_URL" ]; then
+    echo -e "${ERROR} 未能获取到最新 OpenList 安装包下载地址。"
+    return 1
+  fi
   pushd "$SCRIPT_DIR" > /dev/null || { echo -e "${ERROR} 无法切换到脚本目录。"; return 1; }
   echo -e "${INFO} 正在下载 ${YELLOW}$FILE_NAME${NC} ..."
   download_with_progress "$DOWNLOAD_URL" "$FILE_NAME" || { echo -e "${ERROR} 下载文件失败。"; popd > /dev/null; return 1; }
@@ -71,6 +84,12 @@ install_openlist() {
 update_openlist() {
   ensure_tools
   [ ! -d "$DEST_DIR" ] && { echo -e "${ERROR} $DEST_DIR 文件夹不存在，请先安装 OpenList。"; return 1; }
+  local DOWNLOAD_URL
+  DOWNLOAD_URL=$(get_latest_url)
+  if [ -z "$DOWNLOAD_URL" ]; then
+    echo -e "${ERROR} 未能获取到最新 OpenList 安装包下载地址。"
+    return 1
+  fi
   pushd "$SCRIPT_DIR" > /dev/null || { echo -e "${ERROR} 无法切换到脚本目录。"; return 1; }
   echo -e "${INFO} 正在下载 ${YELLOW}$FILE_NAME${NC} ..."
   download_with_progress "$DOWNLOAD_URL" "$FILE_NAME" || { echo -e "${ERROR} 下载文件失败。"; popd > /dev/null; return 1; }
@@ -226,7 +245,7 @@ view_openlist_log() {
     echo -e "${ERROR} 未找到OpenList日志文件：$LOG_FILE"
     return 1
   fi
-  echo -e "${INFO} 显示OpenList日志文件：${YELLOW}$LOG_FILE${NC}"
+  echo -e "${INFO} 显示Open}$LOG_FILE${NC}"
   cat "$LOG_FILE"
   echo -e "按回车键返回菜单..."
   read -r
@@ -262,10 +281,7 @@ update_script() {
   read -r
 }
 
-show_menu() {
-  clear
-  divider
-  echo -e "${GREEN}       OpenList 管理菜单${NC}"
+${NC}"
   divider
   if check_process; then
     PIDS=$(pgrep -f "./openlist server")
