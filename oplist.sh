@@ -16,10 +16,14 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEST_DIR="$SCRIPT_DIR/Openlist"
 DOWNLOAD_URL="https://github.com/OpenListTeam/OpenList/releases/download/beta/openlist-android-arm64.tar.gz"
 
+ARIA2_CMD="aria2c"
+ARIA2_LOG="$SCRIPT_DIR/aria2.log"
+ARIA2_PID_FILE="$SCRIPT_DIR/aria2.pid"
+
 divider() { echo -e "${YELLOW}------------------------------------------------------------${NC}"; }
 
 ensure_tools() {
-  for tool in wget curl; do
+  for tool in wget curl aria2c; do
     if ! command -v $tool >/dev/null 2>&1; then
       echo -e "${WARN} 未检测到 $tool，正在尝试安装..."
       if command -v apt >/dev/null 2>&1; then
@@ -93,6 +97,10 @@ check_process() {
   pgrep -f "./openlist server" > /dev/null
 }
 
+check_aria2_process() {
+  pgrep -f "$ARIA2_CMD --enable-rpc" > /dev/null
+}
+
 start_openlist() {
   ensure_tools
   [ ! -d "$DEST_DIR" ] && { echo -e "${ERROR} $DEST_DIR 文件夹不存在，请先安装 OpenList。"; return 1; }
@@ -163,13 +171,82 @@ stop_openlist() {
   return 0
 }
 
-view_log() {
-  LOG_FILE="$DEST_DIR/openlist.log"
-  if [ ! -f "$LOG_FILE" ]; then
-    echo -e "${ERROR} 未找到日志文件：$LOG_FILE"
+start_aria2() {
+  ensure_tools
+  if check_aria2_process; then
+    PIDS=$(pgrep -f "$ARIA2_CMD --enable-rpc")
+    echo -e "${WARN} aria2 已运行，PID：$PIDS"
+    read -p "是否终止现有进程？(y/n): " confirm
+    if [ "$confirm" = "y" ] || [ "$confirm" = "Y" ]; then
+      echo -e "${INFO} 正在终止 aria2 进程..."
+      pkill -f "$ARIA2_CMD --enable-rpc"
+      sleep 1
+      check_aria2_process && { echo -e "${ERROR} 无法终止 aria2 进程。"; return 1; }
+    else
+      echo -e "${INFO} 取消启动新进程。"
+      return 0
+    fi
+  fi
+  read -ep "请输入aria2 rpc密钥: " ARIA2_SECRET
+  echo -e "${INFO} 启动 aria2c ..."
+  nohup $ARIA2_CMD --enable-rpc --rpc-listen-all=true --rpc-secret="$ARIA2_SECRET" > "$ARIA2_LOG" 2>&1 &
+  ARIA2_PID=$!
+  echo $ARIA2_PID > "$ARIA2_PID_FILE"
+  sleep 2
+  if ps -p "$ARIA2_PID" > /dev/null 2>&1; then
+    echo -e "${SUCCESS} aria2 已启动 (PID: $ARIA2_PID)。"
+    echo -e "${INFO} 日志文件位置: ${YELLOW}$ARIA2_LOG${NC}"
+    echo -e "${INFO} rpc 密钥: ${YELLOW}$ARIA2_SECRET${NC}"
+  else
+    echo -e "${ERROR} aria2 启动失败。"
     return 1
   fi
-  echo -e "${INFO} 显示日志文件：${YELLOW}$LOG_FILE${NC}"
+}
+
+stop_aria2() {
+  if check_aria2_process; then
+    PIDS=$(pgrep -f "$ARIA2_CMD --enable-rpc")
+    echo -e "${INFO} 检测到 aria2 正在运行，PID：$PIDS"
+    echo -e "${INFO} 正在终止 aria2 ..."
+    pkill -f "$ARIA2_CMD --enable-rpc"
+    sleep 1
+    check_aria2_process && { echo -e "${ERROR} 无法终止 aria2 进程。"; return 1; }
+    rm -f "$ARIA2_PID_FILE"
+    echo -e "${SUCCESS} aria2 已成功终止。"
+  else
+    echo -e "${WARN} aria2 未运行。"
+  fi
+  return 0
+}
+
+aria2_status_line() {
+  if check_aria2_process; then
+    PIDS=$(pgrep -f "$ARIA2_CMD --enable-rpc")
+    echo -e "${INFO} aria2 状态：${GREEN}运行中 (PID: $PIDS)${NC}"
+  else
+    echo -e "${INFO} aria2 状态：${RED}未运行${NC}"
+  fi
+}
+
+view_openlist_log() {
+  LOG_FILE="$DEST_DIR/openlist.log"
+  if [ ! -f "$LOG_FILE" ]; then
+    echo -e "${ERROR} 未找到OpenList日志文件：$LOG_FILE"
+    return 1
+  fi
+  echo -e "${INFO} 显示OpenList日志文件：${YELLOW}$LOG_FILE${NC}"
+  cat "$LOG_FILE"
+  echo -e "按回车键返回菜单..."
+  read -r
+}
+
+view_aria2_log() {
+  LOG_FILE="$ARIA2_LOG"
+  if [ ! -f "$LOG_FILE" ]; then
+    echo -e "${ERROR} 未找到aria2日志文件：$LOG_FILE"
+    return 1
+  fi
+  echo -e "${INFO} 显示aria2日志文件：${YELLOW}$LOG_FILE${NC}"
   cat "$LOG_FILE"
   echo -e "按回车键返回菜单..."
   read -r
@@ -208,28 +285,35 @@ show_menu() {
   else
     echo -e "${INFO} OpenList 状态：${RED}未运行${NC}"
   fi
+  aria2_status_line
   divider
   echo -e "${YELLOW}1)${NC} 安装 OpenList 最新版"
   echo -e "${YELLOW}2)${NC} 更新 OpenList 到最新版"
   echo -e "${YELLOW}3)${NC} 启动 OpenList"
   echo -e "${YELLOW}4)${NC} 停止 OpenList"
-  echo -e "${YELLOW}5)${NC} 查看日志"
-  echo -e "${YELLOW}6)${NC} 更新管理脚本"
-  echo -e "${YELLOW}7)${NC} 退出"
+  echo -e "${YELLOW}5)${NC} 启动 aria2"
+  echo -e "${YELLOW}6)${NC} 停止 aria2"
+  echo -e "${YELLOW}7)${NC} 查看OpenList启动日志"
+  echo -e "${YELLOW}8)${NC} 查看aria2启动日志"
+  echo -e "${YELLOW}9)${NC} 更新管理脚本"
+  echo -e "${YELLOW}10)${NC} 退出"
   divider
 }
 
 while true; do
   show_menu
-  read -ep "请输入选项 (1-7): " choice
+  read -ep "请输入选项 (1-10): " choice
   case $choice in
     1) install_openlist; echo -e "按回车键返回菜单..."; read -r ;;
     2) update_openlist; echo -e "按回车键返回菜单..."; read -r ;;
     3) start_openlist; echo -e "按回车键返回菜单..."; read -r ;;
     4) stop_openlist; echo -e "按回车键返回菜单..."; read -r ;;
-    5) view_log ;;
-    6) update_script ;;
-    7) echo -e "${INFO} 退出程序。"; exit 0 ;;
-    *) echo -e "${ERROR} 无效选项，请输入 1-7。"; echo -e "按回车键返回菜单..."; read -r ;;
+    5) start_aria2; echo -e "按回车键返回菜单..."; read -r ;;
+    6) stop_aria2; echo -e "按回车键返回菜单..."; read -r ;;
+    7) view_openlist_log ;;
+    8) view_aria2_log ;;
+    9) update_script ;;
+    10) echo -e "${INFO} 退出程序。"; exit 0 ;;
+    *) echo -e "${ERROR} 无效选项，请输入 1-10。"; echo -e "按回车键返回菜单..."; read -r ;;
   esac
 done
