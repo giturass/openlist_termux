@@ -289,10 +289,16 @@ view_aria2_log() {
 update_script() {
   ensure_tools
   TMP_FILE="oplist.sh.new"
-  get_github_token
   echo -e "${INFO} 正在下载最新管理脚本..."
-  curl -L --progress-bar -H "Authorization: token $GITHUB_TOKEN" -o "$TMP_FILE" https://raw.githubusercontent.com/giturass/openlist_termux/refs/heads/main/oplist.sh
-  if [ $? -eq 0 ] && [ -s "$TMP_FILE" ]; then
+  if command -v wget >/dev/null 2>&1; then
+    wget -q --no-check-certificate "https://raw.githubusercontent.com/giturass/openlist_termux/refs/heads/main/oplist.sh" -O "$TMP_FILE"
+  else
+    echo -e "${ERROR} 未检测到 wget，请先安装 wget。"
+    echo -e "按回车键返回菜单..."
+    read -r
+    return 1
+  fi
+  if [ -s "$TMP_FILE" ]; then
     chmod +x "$TMP_FILE"
     mv "$TMP_FILE" oplist.sh
     echo -e "${SUCCESS} 管理脚本已更新为最新版本。"
