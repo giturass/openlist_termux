@@ -46,21 +46,38 @@ get_aria2_secret() {
 divider() { echo -e "${YELLOW}------------------------------------------------------------${NC}"; }
 
 ensure_tools() {
-  for tool in curl aria2c; do
-    if ! command -v $tool >/dev/null 2>&1; then
-      echo -e "${WARN} 未检测到 $tool，正在尝试安装..."
-      if command -v pkg >/dev/null 2>&1; then
-        if [ "$tool" = "aria2c" ]; then
-          pkg update && pkg install -y aria2
-        else
-          pkg update && pkg install -y $tool
-        fi
-      else
-        echo -e "${ERROR} 无法自动安装 $tool，请手动安装后重试。"
-        exit 1
-      fi
+  # 检查 wget
+  if ! command -v wget >/dev/null 2>&1; then
+    echo -e "${WARN} 未检测到 wget，正在尝试安装..."
+    if command -v pkg >/dev/null 2>&1; then
+      pkg update && pkg install -y wget
+    else
+      echo -e "${ERROR} 无法自动安装 wget，请手动安装后重试。"
+      exit 1
     fi
-  done
+  fi
+
+  # 检查 curl
+  if ! command -v curl >/dev/null 2>&1; then
+    echo -e "${WARN} 未检测到 curl，正在尝试安装..."
+    if command -v pkg >/dev/null 2>&1; then
+      pkg update && pkg install -y curl
+    else
+      echo -e "${ERROR} 无法自动安装 curl，请手动安装后重试。"
+      exit 1
+    fi
+  fi
+
+  # 检查 aria2c
+  if ! command -v aria2c >/dev/null 2>&1; then
+    echo -e "${WARN} 未检测到 aria2c，正在尝试安装..."
+    if command -v pkg >/dev/null 2>&1; then
+      pkg update && pkg install -y aria2
+    else
+      echo -e "${ERROR} 无法自动安装 aria2c，请手动安装后重试。"
+      exit 1
+    fi
+  fi
 }
 
 get_latest_url() {
@@ -293,9 +310,7 @@ update_script() {
   TMP_FILE="oplist.sh.new"
   echo -e "${INFO} 正在下载最新管理脚本..."
   if command -v wget >/dev/null 2>&1; then
-    wget -q --no-check-certificate "https://raw.githubusercontent.com/giturass/openlist_termux/refs/heads/main/oplist.sh" -O "$TMP_FILE"
-  else
-    echo -e "${ERROR} 未检测到 wget，请先安装 wget。"
+    wget -q --no-check-certificate "https://raw.githubusercontent.com/giturass/openlist_termux/refs 未检测到 wget，请先安装 wget。"
     echo -e "按回车键返回菜单..."
     read -r
     return 1
