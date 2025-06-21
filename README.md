@@ -1,6 +1,6 @@
 # Termux 下的 OpenList
 
-这是一个在 Android Termux 环境中方便安装、更新和管理 [OpenList](https://github.com/openlist/openlist) 的脚本。项目集成了 **aria2** 的安装和管理功能，以提升下载效率。
+这是一个在 Android Termux 环境中方便安装、更新和管理 [OpenList](https://github.com/OpenListTeam/OpenList) 的脚本。项目集成了 **aria2** 的安装和管理功能，以提升下载效率。
 
 ## 功能
 - 在 Termux 中轻松安装和更新 OpenList。
@@ -27,8 +27,8 @@
    curl -O https://raw.githubusercontent.com/giturass/openlist_termux/refs/heads/main/oplist.sh && chmod +x oplist.sh && ./oplist.sh
    ```
 2. 根据交互提示操作：
-   - 按提示输入 **GitHub token**（首次输入后本地保存）。
-   - 按提示输入 **aria2 RPC 密钥**（同样本地安全保存）。
+   - 按提示输入 **GitHub token**（首次安装更新输入后本地保存）。
+   - 按提示输入 **aria2 RPC 密钥**（首次启动aria2交互输入同样本地安全保存）。
 
 3. 脚本将自动：
    - 安装或更新 OpenList。
