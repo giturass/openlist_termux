@@ -1,4 +1,3 @@
-```markdown
 # Termux 下的 OpenList
 
 这是一个在 Android Termux 环境中方便安装、更新和管理 [OpenList](https://github.com/openlist/openlist) 的脚本。项目集成了 **aria2** 的安装和管理功能，以提升下载效率。
