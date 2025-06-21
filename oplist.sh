@@ -20,11 +20,27 @@ ARIA2_DIR="$SCRIPT_DIR/aria2"
 ARIA2_LOG="$ARIA2_DIR/aria2.log"
 ARIA2_CMD="aria2c"
 
-get_latest_url() {
-  curl -s https://api.github.com/repos/OpenListTeam/OpenList/releases/latest \
-    | grep "browser_download_url" \
-    | grep "openlist-android-arm64.tar.gz" \
-    | cut -d '"' -f 4
+GITHUB_TOKEN_FILE="$HOME/.openlist_token"
+ARIA2_SECRET_FILE="$HOME/.openlist_aria2_secret"
+
+get_github_token() {
+  if [ ! -f "$GITHUB_TOKEN_FILE" ]; then
+    echo -e "${INFO} 检测到你未设置 GitHub Token。"
+    read -ep "请输入你的 GitHub Token: " GITHUB_TOKEN
+    echo "$GITHUB_TOKEN" > "$GITHUB_TOKEN_FILE"
+    chmod 600 "$GITHUB_TOKEN_FILE"
+  fi
+  GITHUB_TOKEN=$(cat "$GITHUB_TOKEN_FILE")
+}
+
+get_aria2_secret() {
+  if [ ! -f "$ARIA2_SECRET_FILE" ]; then
+    echo -e "${INFO} 检测到你未设置 aria2 rpc 密钥。"
+    read -ep "请输入aria2 rpc密钥: " ARIA2_SECRET
+    echo "$ARIA2_SECRET" > "$ARIA2_SECRET_FILE"
+    chmod 600 "$ARIA2_SECRET_FILE"
+  fi
+  ARIA2_SECRET=$(cat "$ARIA2_SECRET_FILE")
 }
 
 divider() { echo -e "${YELLOW}------------------------------------------------------------${NC}"; }
@@ -45,10 +61,19 @@ ensure_tools() {
   done
 }
 
+get_latest_url() {
+  get_github_token
+  curl -s -H "Authorization: token $GITHUB_TOKEN" https://api.github.com/repos/OpenListTeam/OpenList/releases/latest \
+    | grep "browser_download_url" \
+    | grep "openlist-android-arm64.tar.gz" \
+    | cut -d '"' -f 4
+}
+
 download_with_progress() {
   local url="$1"
   local output="$2"
-  curl -L --progress-bar -o "$output" "$url"
+  get_github_token
+  curl -L --progress-bar -H "Authorization: token $GITHUB_TOKEN" -o "$output" "$url"
 }
 
 extract_file() {
@@ -198,7 +223,7 @@ start_aria2() {
       return 0
     fi
   fi
-  read -ep "请输入aria2 rpc密钥: " ARIA2_SECRET
+  get_aria2_secret
   echo -e "${INFO} 启动 aria2c ..."
   nohup $ARIA2_CMD --enable-rpc --rpc-listen-all=true --rpc-secret="$ARIA2_SECRET" > "$ARIA2_LOG" 2>&1 &
   sleep 2
@@ -264,8 +289,9 @@ view_aria2_log() {
 update_script() {
   ensure_tools
   TMP_FILE="oplist.sh.new"
+  get_github_token
   echo -e "${INFO} 正在下载最新管理脚本..."
-  curl -L --progress-bar -o "$TMP_FILE" https://raw.githubusercontent.com/giturass/openlist_termux/refs/heads/main/oplist.sh
+  curl -L --progress-bar -H "Authorization: token $GITHUB_TOKEN" -o "$TMP_FILE" https://raw.githubusercontent.com/giturass/openlist_termux/refs/heads/main/oplist.sh
   if [ $? -eq 0 ] && [ -s "$TMP_FILE" ]; then
     chmod +x "$TMP_FILE"
     mv "$TMP_FILE" oplist.sh
