@@ -49,10 +49,12 @@ ensure_tools() {
   for tool in curl aria2c; do
     if ! command -v $tool >/dev/null 2>&1; then
       echo -e "${WARN} 未检测到 $tool，正在尝试安装..."
-      if command -v apt >/dev/null 2>&1; then
-        apt update && apt install -y $tool
-      elif command -v pkg >/dev/null 2>&1; then
-        pkg update && pkg install -y $tool
+      if command -v pkg >/dev/null 2>&1; then
+        if [ "$tool" = "aria2c" ]; then
+          pkg update && pkg install -y aria2
+        else
+          pkg update && pkg install -y $tool
+        fi
       else
         echo -e "${ERROR} 无法自动安装 $tool，请手动安装后重试。"
         exit 1
