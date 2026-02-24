@@ -61,26 +61,6 @@ init_paths() {
     TUNNEL_MODULE="$SCRIPT_DIR/tunnel.sh"
 }
 
-# ========== 快捷方式管理 ==========
-ensure_oplist_shortcut() {
-    if ! echo "$PATH" | grep -q "$PREFIX/bin"; then
-        export PATH="$PATH:$PREFIX/bin"
-        if ! grep -q "$PREFIX/bin" ~/.bashrc 2>/dev/null; then
-            echo "export PATH=\$PATH:$PREFIX/bin" >> ~/.bashrc
-        fi
-        echo -e "${INFO} 已将 ${C_BOLD_YELLOW}$PREFIX/bin${C_RESET} 添加到 PATH。请重启终端确保永久生效。"
-    fi
-    if [ ! -f "$OPLIST_PATH" ] || [ "$REAL_PATH" != "$(readlink -f "$OPLIST_PATH")" ]; then
-        if [ "$REAL_PATH" != "$OPLIST_PATH" ]; then
-            cp "$REAL_PATH" "$OPLIST_PATH"
-            chmod +x "$OPLIST_PATH"
-            echo -e "${SUCCESS} 已将脚本安装为全局命令：${C_BOLD_YELLOW}oplist${C_RESET}"
-            echo -e "${INFO} 你现在可以随时输入 ${C_BOLD_YELLOW}oplist${C_RESET} 启动管理菜单！"
-            sleep 3
-        fi
-    fi
-}
-
 init_cache_dir() {
     [ -d "$CACHE_DIR" ] || mkdir -p "$CACHE_DIR"
     [ -d "$BACKUP_DIR" ] || mkdir -p "$BACKUP_DIR"
