@@ -81,4 +81,97 @@ EOF
     echo -e "${INFO} 配置 DNS 路由: $DOMAIN"
     cloudflared tunnel route dns "$TUNNEL_NAME" "$DOMAIN" || { echo -e "${ERROR} DNS 路由配置失败，请检查 Cloudflare 账户权限或域名配置"; return 1; }
     if pgrep -f "cloudflared.*$TUNNEL_NAME" >/dev/null; then
-        echo -e "${WARN} 隧道 $TUNNEL_NAME 已在运行，尝试停
+        echo -e "${WARN} 隧道 $TUNNEL_NAME 已在运行，尝试停止..."
+        pkill -f "cloudflared.*$TUNNEL_NAME" || echo -e "${ERROR} 无法停止现有隧道进程"
+        sleep 2
+    fi
+    echo -e "${INFO} 正在启动 Cloudflare Tunnel..."
+    cloudflared tunnel --config "$CF_CONFIG" --no-autoupdate --protocol http2 run "$TUNNEL_NAME" > "$CF_LOG" 2>&1 &
+    sleep 2
+    if pgrep -f "cloudflared.*$TUNNEL_NAME" >/dev/null; then
+        echo -e "${SUCCESS} 隧道已启动，日志输出至: $CF_LOG"
+        echo -e "${INFO} 访问地址: https://$DOMAIN"
+    else
+        echo -e "${ERROR} 隧道启动失败，请检查 $CF_LOG 或确保 $CRED_FILE 有效"
+        return 1
+    fi
+    echo -e "${C_BOLD_MAGENTA}按回车键返回菜单...${C_RESET}"
+    read
+    return 0
+}
+
+stop_cloudflare_tunnel() {
+    get_tunnel_info || return 1
+    if pgrep -f "cloudflared.*$TUNNEL_NAME" >/dev/null; then
+        PIDS=$(pgrep -f "cloudflared.*$TUNNEL_NAME")
+        echo -e "${INFO} 检测到 Cloudflare Tunnel 正在运行，PID：${C_BOLD_YELLOW}$PIDS${C_RESET}"
+        echo -e "${INFO} 正在终止 Cloudflare Tunnel..."
+        pkill -f "cloudflared.*$TUNNEL_NAME"
+        sleep 1
+        if pgrep -f "cloudflared.*$TUNNEL_NAME" >/dev/null; then
+            echo -e "${ERROR} 无法终止 Cloudflare Tunnel 进程。"
+            return 1
+        fi
+        echo -e "${SUCCESS} Cloudflare Tunnel 已成功终止。"
+    else
+        echo -e "${WARN} Cloudflare Tunnel 未运行。"
+    fi
+    echo -e "${C_BOLD_MAGENTA}按回车键返回菜单...${C_RESET}"
+    read
+    return 0
+}
+
+view_tunnel_log() {
+    echo -e "${C_BOLD_BLUE}┌──────────────────────────┐${C_RESET}"
+    echo -e "${C_BOLD_BLUE}│ 查看 Cloudflare Tunnel 日志 │${C_RESET}"
+    echo -e "${C_BOLD_BLUE}└──────────────────────────┘${C_RESET}"
+    if [ -f "$CF_LOG" ]; then
+        echo -e "${INFO} 显示 Cloudflare Tunnel 日志文件：${C_BOLD_YELLOW}$CF_LOG${C_RESET}"
+        cat "$CF_LOG"
+    else
+        echo -e "${ERROR} 未找到 Cloudflare Tunnel 日志文件：${C_BOLD_YELLOW}$CF_LOG${C_RESET}"
+    fi
+    echo -e "${C_BOLD_MAGENTA}按回车键返回菜单...${C_RESET}"
+    read
+}
+
+enable_autostart_tunnel() {
+    mkdir -p "$HOME/.termux/boot"
+    local boot_file="$HOME/.termux/boot/tunnel_autostart.sh"
+    cat > "$boot_file" <<EOF
+#!/data/data/com.termux/files/usr/bin/bash
+termux-wake-lock
+CONFIG_DIR="$CONFIG_DIR"
+CF_CONFIG="$CF_CONFIG"
+CF_LOG="$CF_LOG"
+TUNNEL_NAME="$TUNNEL_NAME"
+cloudflared tunnel --config "\$CF_CONFIG" --no-autoupdate --protocol http2 run "\$TUNNEL_NAME" > "\$CF_LOG" 2>&1 &
+EOF
+    chmod +x "$boot_file"
+    echo -e "${SUCCESS} Cloudflare Tunnel 已成功设置开机自启"
+}
+
+disable_autostart_tunnel() {
+    local boot_file="$HOME/.termux/boot/tunnel_autostart.sh"
+    if [ -f "$boot_file" ]; then
+        rm -f "$boot_file"
+        echo -e "${INFO} 已禁用 Cloudflare Tunnel 开机自启"
+    fi
+}
+
+uninstall_tunnel() {
+    echo -e "${C_BOLD_RED}!!! 卸载将删除所有 Cloudflare Tunnel 配置和凭证，是否继续？(y/n):${C_RESET}"
+    read confirm
+    if [ "$confirm" = "y" ] || [ "$confirm" = "Y" ]; then
+        pkill -f "cloudflared"
+        if command -v pkg >/dev/null 2>&1; then
+            pkg uninstall -y cloudflared && apt autoremove -y
+        fi
+        rm -rf "$CONFIG_DIR"
+        echo -e "${SUCCESS} Cloudflare Tunnel 已完成卸载。"
+    else
+        echo -e "${INFO} 已取消卸载。"
+    fi
+    echo -e "${C_BOLD_MAGENTA}按回车键返回菜单...${C_RESET}"
+    read
+}
